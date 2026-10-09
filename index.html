@@ -418,7 +418,7 @@ function fmtTime(ts){const d=new Date(ts);return d.getFullYear()+'-'+String(d.ge
 const API_CFG_KEY='kayhs_api_cfg';
 function getApiCfg(){try{return JSON.parse(localStorage.getItem(API_CFG_KEY)||'{}')}catch(e){return{}}}
 function saveApiCfg(cfg){localStorage.setItem(API_CFG_KEY,JSON.stringify(cfg))}
-function apiBase(){const c=getApiCfg();return c.baseUrl||''}
+function apiBase(){const c=getApiCfg();return c.baseUrl||'https://kayhs-api.485918634.workers.dev'}
 function apiKey(){const c=getApiCfg();return c.apiKey||''}
 async function apiRequest(path,opts={}){
   const base=apiBase();
