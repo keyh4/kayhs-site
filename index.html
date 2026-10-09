@@ -32,6 +32,19 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(250,249,246,
 .nav-links a.active::after{content:'';position:absolute;bottom:-2px;left:12px;right:12px;height:2px;background:var(--accent)}
 .nav-github{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--muted)!important}
 .nav-github:hover{color:var(--text)!important}
+.nav-login-btn{padding:6px 14px;font-size:13px;color:var(--bg);background:var(--accent);border-radius:2px;transition:opacity .2s;margin-left:4px}
+.nav-login-btn:hover{opacity:.85}
+/* ===== 登录弹窗 ===== */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:200;display:none;align-items:center;justify-content:center}
+.modal-overlay.show{display:flex}
+.modal-box{background:var(--bg);border:1px solid var(--border);border-radius:4px;padding:32px;width:340px;max-width:90vw}
+.modal-box h3{font-family:'Noto Serif SC',serif;font-size:18px;margin-bottom:20px;text-align:center}
+.modal-box .form-group{margin-bottom:14px}
+.modal-box label{display:block;font-size:13px;color:var(--muted);margin-bottom:6px}
+.modal-box input{width:100%}
+.modal-box .btn{width:100%;margin-top:8px;padding:10px;background:var(--accent);color:var(--bg);border:none;border-radius:2px;font-size:14px;cursor:pointer}
+.modal-box .btn:hover{opacity:.9}
+.modal-close{float:right;cursor:pointer;color:var(--muted);font-size:18px;line-height:1}
 /* ===== 主内容 ===== */
 main{position:relative;z-index:1;max-width:720px;margin:0 auto;padding:96px 24px 80px}
 .view{display:none;animation:fadeIn .3s ease}
@@ -223,10 +236,28 @@ main{position:relative;z-index:1;max-width:720px;margin:0 auto;padding:96px 24px
       <a href="#guestbook" data-route="guestbook">留言</a>
       <a href="#settings" data-route="settings">设置</a>
       <a href="https://github.com" target="_blank" class="nav-github">GitHub</a>
+      <button id="navLoginBtn" class="nav-login-btn">登录</button>
     </div>
     <button class="menu-btn" onclick="document.getElementById('navLinks').classList.toggle('mobile-open')">≡</button>
   </div>
 </nav>
+
+<!-- ===== 登录弹窗 ===== -->
+<div class="modal-overlay" id="loginModal" onclick="if(event.target===this)hideLoginModal()">
+  <div class="modal-box">
+    <span class="modal-close" onclick="hideLoginModal()">×</span>
+    <h3>登录</h3>
+    <div class="form-group">
+      <label>账号</label>
+      <input type="text" id="loginUser" placeholder="输入账号" autocomplete="username">
+    </div>
+    <div class="form-group">
+      <label>密码</label>
+      <input type="password" id="loginPass" placeholder="输入密码" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()">
+    </div>
+    <button class="btn" onclick="doLogin()">登录</button>
+  </div>
+</div>
 
 <!-- ===== 搜索弹窗 ===== -->
 <div class="search-overlay" id="searchOverlay" onclick="if(event.target===this)closeSearch()">
@@ -420,14 +451,46 @@ function getApiCfg(){try{return JSON.parse(localStorage.getItem(API_CFG_KEY)||'{
 function saveApiCfg(cfg){localStorage.setItem(API_CFG_KEY,JSON.stringify(cfg))}
 function apiBase(){const c=getApiCfg();return c.baseUrl||'https://kayhs-api.485918634.workers.dev'}
 function apiKey(){const c=getApiCfg();return c.apiKey||''}
+
+// ========== 登录鉴权 ==========
+const TOKEN_KEY='kayhs_token';
+function getToken(){return localStorage.getItem(TOKEN_KEY)||''}
+function setToken(t){localStorage.setItem(TOKEN_KEY,t)}
+function clearToken(){localStorage.removeItem(TOKEN_KEY)}
+function isLoggedIn(){return !!getToken()}
+function showLoginModal(){const m=$('loginModal');if(m)m.classList.add('show')}
+function hideLoginModal(){const m=$('loginModal');if(m)m.classList.remove('show')}
+async function doLogin(){
+  const u=$('loginUser').value.trim(),p=$('loginPass').value;
+  if(!u||!p){toast('请输入账号密码');return}
+  const r=await fetch(apiBase()+'/api/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:u,password:p})});
+  if(!r.ok){const e=await r.json().catch(()=>({}));toast(e.error||'登录失败');return}
+  const d=await r.json();setToken(d.token);
+  $('loginUser').value='';$('loginPass').value='';
+  hideLoginModal();updateNavLogin();toast('登录成功');
+  if(window._loginCallback){const cb=window._loginCallback;window._loginCallback=null;cb()}
+}
+function doLogout(){clearToken();updateNavLogin();toast('已退出登录')}
+function requireLogin(callback){
+  if(isLoggedIn()){callback&&callback();return true}
+  window._loginCallback=callback;showLoginModal();toast('请先登录');return false
+}
+function updateNavLogin(){
+  const btn=$('navLoginBtn');
+  if(!btn)return;
+  if(isLoggedIn()){btn.textContent='退出';btn.onclick=doLogout}
+  else{btn.textContent='登录';btn.onclick=showLoginModal}
+}
+
 async function apiRequest(path,opts={}){
   const base=apiBase();
   if(!base){toast('请先配置API地址');location.hash='settings';return null}
   const headers={'Content-Type':'application/json',...(opts.headers||{})};
   if(apiKey())headers['X-API-Key']=apiKey();
+  if(getToken())headers['Authorization']='Bearer '+getToken();
   try{
     const res=await fetch(base+path,{...opts,headers});
-    if(res.status===401){toast('API密钥错误');return null}
+    if(res.status===401){clearToken();updateNavLogin();showLoginModal();toast('登录已过期，请重新登录');return null}
     if(!res.ok){const err=await res.text();throw new Error(err||'请求失败')}
     if(opts.raw)return res;
     return await res.json();
@@ -440,6 +503,7 @@ async function apiUpload(path,file,onProgress){
     const xhr=new XMLHttpRequest();
     xhr.open('POST',base+path);
     if(apiKey())xhr.setRequestHeader('X-API-Key',apiKey());
+    if(getToken())xhr.setRequestHeader('Authorization','Bearer '+getToken());
     xhr.upload.onprogress=e=>{if(e.lengthComputable&&onProgress)onProgress(Math.round(e.loaded/e.total*100))};
     xhr.onload=()=>{try{resolve(JSON.parse(xhr.responseText))}catch(e){reject(e)}};
     xhr.onerror=()=>{toast('上传失败');reject(new Error('upload failed'))};
@@ -635,6 +699,7 @@ function fmtTimer(ms){const h=Math.floor(ms/3600000),m=Math.floor(ms/60000)%60,s
 /* ===== 云盘（云端存储）===== */
 let driveLoading=false;
 async function uploadDriveFiles(files){
+  if(!requireLogin())return;
   if(!apiBase()){toast('请先配置API');location.hash='settings';return}
   for(const file of files){
     try{
@@ -668,7 +733,7 @@ async function renderDrive(){
 }
 function getFileIcon(name){const ext=name.split('.').pop().toLowerCase();if(['jpg','jpeg','png','gif','webp','svg'].includes(ext))return'🖼️';if(['mp4','webm','mov','avi'].includes(ext))return'🎬';if(['mp3','wav','ogg','flac'].includes(ext))return'🎵';if(['pdf'].includes(ext))return'📕';if(['doc','docx','txt','md'].includes(ext))return'📄';if(['zip','rar','7z'].includes(ext))return'📦';return'📎'}
 function downloadDriveFile(id,name){window.open(apiBase()+'/api/drive/download/'+id,'_blank')}
-async function deleteDriveFile(id){if(!confirm('确定删除？'))return;await apiRequest('/api/drive/'+id,{method:'DELETE'});renderDrive()}
+async function deleteDriveFile(id){if(!requireLogin())return;if(!confirm('确定删除？'))return;await apiRequest('/api/drive/'+id,{method:'DELETE'});renderDrive()}
 /* ===== 网址导航（云端）===== */
 let navCache=[];
 async function renderNav(){
@@ -680,15 +745,17 @@ async function renderNav(){
   $('navSections').innerHTML=cats.map(cat=>`<div class="nav-section"><div class="nav-section-title">${cat}</div><div class="nav-items">${bms.filter(b=>(b.cat||'其他')===cat).map(b=>`<a href="${b.url}" target="_blank" class="nav-item"><span class="nav-item-icon">${b.icon||'🔗'}</span><span>${b.name}</span><span class="nav-item-del" onclick="event.preventDefault();event.stopPropagation();delBookmark('${b.id}')">×</span></a>`).join('')}</div></div>`).join('')||'<p style="color:var(--muted);text-align:center;padding:40px">无匹配结果</p>'
 }
 async function addBookmark(){
+  if(!requireLogin())return;
   const name=$('bmName').value.trim(),url=$('bmUrl').value.trim(),cat=$('bmCat').value.trim()||'其他',icon=$('bmIcon').value.trim();
   if(!name||!url){toast('请填写名称和网址');return}
   const res=await apiRequest('/api/nav',{method:'POST',body:JSON.stringify({name,url,cat,icon})});
   if(res){navCache=[];$('bmName').value='';$('bmUrl').value='';$('bmCat').value='';$('bmIcon').value='';renderNav();toast('已添加')}
 }
-async function delBookmark(id){await apiRequest('/api/nav/'+id,{method:'DELETE'});navCache=[];renderNav()}
+async function delBookmark(id){if(!requireLogin())return;await apiRequest('/api/nav/'+id,{method:'DELETE'});navCache=[];renderNav()}
 /* ===== 短链接（云端）===== */
 let shortCache=[];
 async function createShortLink(){
+  if(!requireLogin())return;
   const url=$('shortInput').value.trim();
   if(!url){toast('请输入链接');return}
   if(!/^https?:\/\//.test(url)){toast('请输入以http://或https://开头的链接');return}
@@ -704,7 +771,7 @@ async function renderShortList(){
   if(shortCache.length===0){const data=await apiRequest('/api/short/list');if(data)shortCache=data.items||[]}
   $('shortList').innerHTML=shortCache.length?shortCache.map(s=>`<div class="short-item"><span class="short-code" onclick="copyText('${apiBase()}/s/${s.code}')">#${s.code}</span><span class="short-original" title="${s.url}">${s.url}</span><span class="short-views">${s.views||0}次</span><button class="btn btn-sm btn-outline" onclick="delShortLink('${s.code}')">删除</button></div>`).join(''):'<div class="drive-empty">暂无短链</div>'
 }
-async function delShortLink(code){await apiRequest('/api/short/'+code,{method:'DELETE'});shortCache=[];renderShortList()}
+async function delShortLink(code){if(!requireLogin())return;await apiRequest('/api/short/'+code,{method:'DELETE'});shortCache=[];renderShortList()}
 /* ===== 代码片段（云端）===== */
 let snippetCache=[];
 async function renderSnippets(){
@@ -713,6 +780,7 @@ async function renderSnippets(){
   $('snippetList').innerHTML=snippetCache.length?`<div class="snippet-list">${snippetCache.map((s,i)=>`<div class="snippet-item" onclick="viewSnippet(${i})"><div class="snippet-title">${s.title}</div><div class="snippet-meta">${s.lang} · ${fmtTime(s.createdAt)} · ${(s.code||'').length}字符</div><button class="btn btn-sm btn-outline" style="float:right" onclick="event.stopPropagation();delSnippet('${s.id}')">删除</button></div>`).join('')}</div>`:'<div class="drive-empty">暂无代码片段</div>'
 }
 async function addSnippet(){
+  if(!requireLogin())return;
   const title=$('snipTitle').value.trim(),lang=$('snipLang').value,code=$('snipCode').value;
   if(!title||!code){toast('请填写标题和代码');return}
   const res=await apiRequest('/api/snippets',{method:'POST',body:JSON.stringify({title,lang,code})});
@@ -720,7 +788,7 @@ async function addSnippet(){
 }
 function viewSnippet(i){const s=snippetCache[i];if(!s)return;$('snipViewTitle').textContent=s.title+' ('+s.lang+')';$('snipViewCode').textContent=s.code;window._currentSnippet=s.code;$('snippetViewer').style.display='block';$('snippetViewer').scrollIntoView({behavior:'smooth'})}
 function copySnippetCode(){copyText(window._currentSnippet||'')}
-async function delSnippet(id){await apiRequest('/api/snippets/'+id,{method:'DELETE'});snippetCache=[];renderSnippets()}
+async function delSnippet(id){if(!requireLogin())return;await apiRequest('/api/snippets/'+id,{method:'DELETE'});snippetCache=[];renderSnippets()}
 /* ===== 博客 ===== */
 const BLOG_POSTS=[
 {id:1,title:'为什么我做了一个带云存储的个人工具站',date:'2026-10-10',excerpt:'纯静态不够用，云盘必须能跨设备。用Cloudflare Workers+R2+KV搭了个轻量后端，免费额度够用。',content:`
@@ -773,6 +841,7 @@ async function renderGuestbook(){
   $('guestbookList').innerHTML=gbCache.length?gbCache.map(g=>`<div class="guestbook-item"><div class="guestbook-head"><span class="guestbook-name">${g.name}</span><span class="guestbook-time">${fmtTime(g.createdAt)}</span></div><div class="guestbook-msg">${(g.msg||'').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>')}</div></div>`).join(''):'<div class="guestbook-empty">还没有留言，来说点什么吧</div>'
 }
 async function addGuestbook(){
+  if(!requireLogin())return;
   const name=$('gbName').value.trim()||'匿名',msg=$('gbMsg').value.trim();
   if(!msg){toast('请输入留言内容');return}
   const res=await apiRequest('/api/guestbook',{method:'POST',body:JSON.stringify({name,msg})});
@@ -812,6 +881,7 @@ router=function(){
   if(hash==='settings')renderSettings();
 };
 /* ===== 初始化 ===== */
+updateNavLogin();
 router();
 setInterval(()=>{const el=$('tsNow');if(el)el.textContent=Math.floor(Date.now()/1000)},1000);
 </script>
