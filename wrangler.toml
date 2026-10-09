@@ -1,0 +1,11 @@
+﻿name = "kayhs-api"
+main = "worker.js"
+compatibility_date = "2024-01-01"
+
+[[r2_buckets]]
+binding = "R2"
+bucket_name = "kayhs-drive"
+
+[[kv_namespaces]]
+binding = "KV"
+id = "ea4e4fc6db90456aacb3456920938ddc"
