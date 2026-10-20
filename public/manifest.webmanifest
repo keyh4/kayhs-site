@@ -1,0 +1,24 @@
+{
+  "name": "kayhs 个人工具站",
+  "short_name": "kayhs",
+  "description": "云盘、开发工具、书签导航、短链接、代码片段与博客",
+  "id": "/",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#fdfdfc",
+  "theme_color": "#fdfdfc",
+  "lang": "zh-CN",
+  "dir": "ltr",
+  "icons": [
+    { "src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ],
+  "shortcuts": [
+    { "name": "云盘", "url": "/drive", "description": "打开个人云盘" },
+    { "name": "工具箱", "url": "/tools", "description": "打开在线工具箱" },
+    { "name": "博客", "url": "/blog", "description": "打开博客" }
+  ]
+}

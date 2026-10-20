@@ -1,0 +1,15 @@
+# kayhs 个人工具站
+# 前后端同源部署于 Cloudflare Workers
+
+User-agent: *
+Allow: /
+
+# API 与私有资源不需要被索引
+Disallow: /api/
+Disallow: /f/
+Disallow: /write
+
+# 短链跳转页没有索引价值
+Disallow: /s/
+
+Sitemap: https://kayhs.qzz.io/feed.xml

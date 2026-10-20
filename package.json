@@ -1,0 +1,17 @@
+{
+  "name": "kayhs-site",
+  "version": "3.0.0",
+  "private": true,
+  "description": "kayhs 个人工具站 — Cloudflare Workers + R2 + KV",
+  "scripts": {
+    "check": "node tools/check.js",
+    "icons": "node tools/gen-icons.js",
+    "dev": "wrangler dev",
+    "deploy": "npm run check && wrangler deploy",
+    "seed": "node tools/seed.js",
+    "tail": "wrangler tail"
+  },
+  "devDependencies": {
+    "wrangler": "^4.149.0"
+  }
+}

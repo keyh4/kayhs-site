@@ -1,0 +1,16 @@
+# 凭据与本地状态，绝不入库
+.dev.vars
+.local-test-password
+.wrangler/
+.wrangler-*/
+
+# 依赖与产物
+node_modules/
+
+# 日志
+dev-server.log
+*.log
+
+# 系统
+.DS_Store
+Thumbs.db

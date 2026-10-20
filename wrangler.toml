@@ -1,6 +1,21 @@
-﻿name = "kayhs-api"
+name = "kayhs-api"
 main = "worker.js"
-compatibility_date = "2024-01-01"
+compatibility_date = "2026-10-13"
+
+# 前端静态资源由 Workers Assets 托管，与 Worker 代码解耦。
+# 这样即使重新部署 Worker，前端也不会消失。
+[assets]
+directory = "./public"
+binding = "ASSETS"
+# 前端路由（/drive、/blog/xxx 等）刷新时回退到 index.html
+not_found_handling = "single-page-application"
+# 关键：只有这些路径先进 Worker 处理。
+# 若不设置，默认是 assets 优先，/api/ping 会被 SPA 回退成 index.html，后端直接失效。
+# 静态资源仍由资源层直出，不消耗 Worker 的 CPU 时间（免费额度每请求仅 10ms）。
+#
+# /feed.xml 必须列在这里：它由 Worker 动态生成，public/ 下没有对应文件，
+# 漏掉就会被 SPA 回退成 index.html —— 已实测踩过这个坑。
+run_worker_first = ["/api/*", "/s/*", "/f/*", "/feed.xml", "/rss.xml"]
 
 [[r2_buckets]]
 binding = "R2"
@@ -9,3 +24,7 @@ bucket_name = "kayhs-drive"
 [[kv_namespaces]]
 binding = "KV"
 id = "ea4e4fc6db90456aacb3456920938ddc"
+
+[vars]
+# 站点自身地址，用于生成短链等绝对 URL
+SITE_ORIGIN = "https://kayhs.qzz.io"
